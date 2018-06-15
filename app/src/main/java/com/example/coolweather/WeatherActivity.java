@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -42,11 +43,11 @@ public class WeatherActivity extends AppCompatActivity {
 
     private ScrollView weatherLayout;
 
-    private Button navButton;
+    private Button navButton1;
 
     private TextView titleCity;
 
-    private TextView titleUpdateTime;
+    private Button navButton2;
 
     private TextView degreeText;
 
@@ -82,7 +83,7 @@ public class WeatherActivity extends AppCompatActivity {
         bingPicImg = (ImageView) findViewById(R.id.bing_pic_img);
         weatherLayout = (ScrollView) findViewById(R.id.weather_layout);
         titleCity = (TextView) findViewById(R.id.title_city);
-        titleUpdateTime = (TextView) findViewById(R.id.title_update_time);
+        navButton2 = (Button) findViewById(R.id.nav_button2);
         degreeText = (TextView) findViewById(R.id.degree_text);
         weatherInfoText = (TextView) findViewById(R.id.weather_info_text);
         forecastLayout = (LinearLayout) findViewById(R.id.forecast_layout);
@@ -94,7 +95,7 @@ public class WeatherActivity extends AppCompatActivity {
         swipeRefresh = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh);
         swipeRefresh.setColorSchemeResources(R.color.colorPrimary);
         drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        navButton = (Button) findViewById(R.id.nav_button);
+        navButton1 = (Button) findViewById(R.id.nav_button1);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather", null);
         if (weatherString != null) {
@@ -114,18 +115,25 @@ public class WeatherActivity extends AppCompatActivity {
                 requestWeather(mWeatherId);
             }
         });
-        navButton.setOnClickListener(new View.OnClickListener() {
+        navButton1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 drawerLayout.openDrawer(GravityCompat.START);
             }
         });
-        String bingPic = prefs.getString("bing_pic", null);
-        if (bingPic != null) {
-            Glide.with(this).load(bingPic).into(bingPicImg);
-        } else {
-            loadBingPic();
-        }
+        navButton2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(WeatherActivity.this, SettingActivity.class);
+                startActivity(intent);
+            }
+        });
+//        String bingPic = prefs.getString("bing_pic", null);
+//        if (bingPic != null) {
+//            Glide.with(this).load(bingPic).into(bingPicImg);
+//        } else {
+//            loadBingPic();
+//        }
     }
 
     /**
@@ -167,48 +175,58 @@ public class WeatherActivity extends AppCompatActivity {
                 });
             }
         });
-        loadBingPic();
+//        loadBingPic();
     }
 
     /**
      * 加载必应每日一图
      */
-    private void loadBingPic() {
-        String requestBingPic = "http://guolin.tech/api/bing_pic";
-        HttpUtil.sendOkHttpRequest(requestBingPic, new Callback() {
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final String bingPic = response.body().string();
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
-                editor.putString("bing_pic", bingPic);
-                editor.apply();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Glide.with(WeatherActivity.this).load(bingPic).into(bingPicImg);
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure(Call call, IOException e) {
-                e.printStackTrace();
-            }
-        });
-    }
+//    private void loadBingPic() {
+//        String requestBingPic = "http://guolin.tech/api/bing_pic";
+//        HttpUtil.sendOkHttpRequest(requestBingPic, new Callback() {
+//            @Override
+//            public void onResponse(Call call, Response response) throws IOException {
+//                final String bingPic = response.body().string();
+//                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+//                editor.putString("bing_pic", bingPic);
+//                editor.apply();
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        Glide.with(WeatherActivity.this).load(bingPic).into(bingPicImg);
+//                    }
+//                });
+//            }
+//
+//            @Override
+//            public void onFailure(Call call, IOException e) {
+//                e.printStackTrace();
+//            }
+//        });
+//    }
 
     /**
      * 处理并展示Weather实体类中的数据。
      */
     private void showWeatherInfo(Weather weather) {
         String cityName = weather.basic.cityName;
-        String updateTime = weather.basic.update.updateTime.split(" ")[1];
+//        String updateTime = weather.basic.update.updateTime.split(" ")[1];
         String degree = weather.now.temperature + "℃";
         String weatherInfo = weather.now.more.info;
         titleCity.setText(cityName);
-        titleUpdateTime.setText(updateTime);
         degreeText.setText(degree);
         weatherInfoText.setText(weatherInfo);
+        //可能要放进子现场，老是加载失败
+        switch (weatherInfo){
+            case "多云":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_cloudy_day));break;
+            case "阴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_overcast));break;
+            case "小雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
+            case "大雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
+            case "雷阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+            case "阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+            case "大暴雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+            case "晴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_sunny_day));break;
+        }
         forecastLayout.removeAllViews();
         for (Forecast forecast : weather.forecastList) {
             View view = LayoutInflater.from(this).inflate(R.layout.forecast_item, forecastLayout, false);
