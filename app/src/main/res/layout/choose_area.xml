@@ -10,7 +10,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="#000000">
+        android:background="?attr/colorPrimary">
 
         <TextView
             android:id="@+id/title_text"

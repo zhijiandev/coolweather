@@ -2,9 +2,13 @@ package com.example.coolweather;
 
 
 
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -29,6 +33,9 @@ import com.example.coolweather.service.AutoUpdateService;
 import com.example.coolweather.util.HttpUtil;
 import com.example.coolweather.util.Utility;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 import okhttp3.Call;
@@ -69,6 +76,93 @@ public class WeatherActivity extends AppCompatActivity {
 
     private String mWeatherId;
 
+
+    private Button navButton3;//share
+    File file;//share
+
+
+    /**
+     * File 转 Uri
+     */
+    public Uri fileTurnUri(File file) {
+        return  Uri.fromFile(file);
+    }//share
+
+
+
+    public void saveBitmapFile(Bitmap bitmap) {
+        file = new File(getExternalCacheDir(),"output.jpg");//将要保存图片的路径
+        try {
+            if(file.exists()){
+                file.delete();
+            }
+            BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
+            bos.flush();
+            bos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }//share
+
+    /**
+     * 获取整个窗口的截图
+     *
+     * @param context
+     * @return
+     */
+    @SuppressLint("NewApi")
+    private Bitmap captureScreen(Activity context) {
+        View cv = context.getWindow().getDecorView();
+
+        cv.setDrawingCacheEnabled(true);
+        cv.buildDrawingCache();
+        Bitmap bmp = cv.getDrawingCache();
+        if (bmp == null) {
+            return null;
+        }
+
+        bmp.setHasAlpha(false);
+        bmp.prepareToDraw();
+        return bmp;
+    }//share
+
+
+    /**
+     * 分享图片和文字内容
+     *
+     * @param dlgTitle
+     *            分享对话框标题
+     * @param subject
+     *            主题
+     * @param content
+     *            分享内容（文字）
+     * @param uri
+     *            图片资源URI
+     */
+    private void shareImg(String dlgTitle, String subject, String content,
+                          Uri uri) {
+        if (uri == null) {
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("image/*");
+        intent.putExtra(Intent.EXTRA_STREAM, uri);
+        if (subject != null && !"".equals(subject)) {
+            intent.putExtra(Intent.EXTRA_SUBJECT, subject);
+        }
+        if (content != null && !"".equals(content)) {
+            intent.putExtra(Intent.EXTRA_TEXT, content);
+        }
+
+        // 设置弹出框标题
+        if (dlgTitle != null && !"".equals(dlgTitle)) { // 自定义标题
+            startActivity(Intent.createChooser(intent, dlgTitle));
+        } else { // 系统默认标题
+            startActivity(intent);
+        }
+    }//share
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -96,9 +190,13 @@ public class WeatherActivity extends AppCompatActivity {
         swipeRefresh.setColorSchemeResources(R.color.colorPrimary);
         drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         navButton1 = (Button) findViewById(R.id.nav_button1);
+        navButton3 = (Button)findViewById(R.id.nav_button3);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather", null);
-        if (weatherString != null) {
+        String weatherid = getIntent().getStringExtra("weather_id1");
+        if(weatherid != null){
+            requestWeather(weatherid);
+        } else if (weatherString != null) {
             // 有缓存时直接解析天气数据
             Weather weather = Utility.handleWeatherResponse(weatherString);
             mWeatherId = weather.basic.weatherId;
@@ -128,6 +226,21 @@ public class WeatherActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+
+        navButton3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Bitmap bmp = captureScreen(WeatherActivity.this);
+                saveBitmapFile(bmp);
+
+               /* Uri uri = Uri.parse(MediaStore.Images.Media.insertImage(getContentResolver(), bmp, null,null));*/
+                if(file != null && file.exists() ) {
+                    shareImg("share", "share", "share",fileTurnUri(file));
+                }
+
+            }
+        });//share
+
 //        String bingPic = prefs.getString("bing_pic", null);
 //        if (bingPic != null) {
 //            Glide.with(this).load(bingPic).into(bingPicImg);
@@ -212,21 +325,36 @@ public class WeatherActivity extends AppCompatActivity {
         String cityName = weather.basic.cityName;
 //        String updateTime = weather.basic.update.updateTime.split(" ")[1];
         String degree = weather.now.temperature + "℃";
-        String weatherInfo = weather.now.more.info;
+        final String weatherInfo = weather.now.more.info;
         titleCity.setText(cityName);
         degreeText.setText(degree);
         weatherInfoText.setText(weatherInfo);
-        //可能要放进子现场，老是加载失败
-        switch (weatherInfo){
-            case "多云":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_cloudy_day));break;
-            case "阴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_overcast));break;
-            case "小雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
-            case "大雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
-            case "雷阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
-            case "阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
-            case "大暴雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
-            case "晴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_sunny_day));break;
-        }
+        //进入UI主进程
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                switch (weatherInfo){
+                    case "多云":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_cloudy_day));break;
+                    case "阴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_overcast));break;
+                    case "小雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
+                    case "大雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
+                    case "雷阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+                    case "阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+                    case "大暴雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+                    case "晴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_sunny_day));break;
+                }
+            }
+        });
+//        switch (weatherInfo){
+//            case "多云":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_cloudy_day));break;
+//            case "阴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_overcast));break;
+//            case "小雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
+//            case "大雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_rain_day));break;
+//            case "雷阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+//            case "阵雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+//            case "大暴雨":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_thunder_storm));break;
+//            case "晴":bingPicImg.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(),R.drawable.weather_sunny_day));break;
+//        }
         forecastLayout.removeAllViews();
         for (Forecast forecast : weather.forecastList) {
             View view = LayoutInflater.from(this).inflate(R.layout.forecast_item, forecastLayout, false);
